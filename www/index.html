@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Berlin Routing</title>
+    <meta charset="utf-8">
+    <link href="ol.css" rel="stylesheet">
+    <style>
+        html, body, #map {
+                margin: 0;
+                width: 100%;
+                height: 100%;
+        }
+		
+		#clear{
+			position: absolute;
+			left: 2em;
+			bottom: 3em;
+			background-color: white;
+			width:	8em;
+			height: 3em;
+			font-size: 14px;
+		}
+		
+		#locate{
+			position: absolute;
+			left: 2em;
+			bottom: 7em;
+			background-color: white;
+			width:	8em;
+			height: 3em;
+			font-size: 14px;
+		}
+		
+    </style>
+    <script src="ol.js"></script>
+	<script src="geolocation.js"></script>
+  </head>
+  <body>
+    <div id="map" class="smallmap"></div>
+      <div id="start-point">start</div>
+      <div id="final-point">ziel</div>
+    </div>
+
+    <button id="clear">Route l&ouml;schen</button>
+    <button id="locate">Locate me!</button>
+	<input type="checkbox" name="track" id="track">
+    <script type="text/javascript">
+	var map;
+      var map = new ol.Map({
+        target: 'map',
+        renderer: ol.RendererHint.CANVAS,
+        layers: [
+          new ol.layer.TileLayer({
+            source: new ol.source.OSM()
+          })
+        ],
+        view: new ol.View2D({
+          center: [1492738, 6894976],
+	  zoom: 13
+	  
+        })
+      });
+
+      var params = {
+        LAYERS: 'berlin-routing:berlin-routing',
+        FORMAT: 'image/png'
+      };
+
+      var startPoint = new ol.Overlay({
+        map: map,
+        element: document.getElementById('start-point')
+      });
+      var finalPoint = new ol.Overlay({
+        map: map,
+        element: document.getElementById('final-point')
+      });
+
+      var transform = ol.proj.getTransform('EPSG:3857', 'EPSG:4326');  
+
+      map.on('click', function(event) {
+        var coordinate = event.getCoordinate();
+        if (startPoint.getPosition() == undefined) {
+          // first click
+          startPoint.setPosition(coordinate);
+        } else if (finalPoint.getPosition() == undefined) {
+          // second click
+          finalPoint.setPosition(coordinate);
+
+          // transform the coordinates from the map projection (EPSG:3857)
+          // into the server projection (EPSG:4326)
+          var startCoord = transform(startPoint.getPosition());
+          var finalCoord = transform(finalPoint.getPosition());
+          var viewparams = [
+            'x1:' + startCoord[0], 'y1:' + startCoord[1],
+            'x2:' + finalCoord[0], 'y2:' + finalCoord[1]
+          ];
+          params.viewparams = viewparams.join(';');
+		  
+          // we now have the two points, create the result layer and add it to the map
+          result = new ol.layer.ImageLayer({
+            source: new ol.source.SingleImageWMS({
+              url: 'http://www.gistribution.de:8080/geoserver/berlin-routing/wms',
+              params: params
+            })
+          });
+	  console.log("Result: " + result);
+
+          map.addLayer(result);
+	
+        }
+      });
+
+      document.getElementById('clear').addEventListener('click', function(event) {
+        // hide the overlays
+        startPoint.setPosition(undefined);
+        finalPoint.setPosition(undefined);
+
+        // remove the result layer
+        map.removeLayer(result);
+      });
+	  
+	  
+	  var geolocation = new ol.Geolocation({
+  // take the projection to use from the map's view
+  projection: view.getProjection()
+});
+// listen to changes in position
+geolocation.on('change', function(evt) {
+  window.console.log(geolocation.getPosition());
+});
+
+
+	  
+    </script>
+  </body>
+</html>
